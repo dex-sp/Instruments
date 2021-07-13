@@ -119,6 +119,11 @@ func (vw *VisaObjectWrapper) CheckErrors() error {
 	return nil
 }
 
+// Get instrument info about Manufacturer, Model, Serial, Version
+func (vw *VisaObjectWrapper) GetInfo() map[string]string {
+	return vw.info
+}
+
 // Cast instrument info to string
 func (vw *VisaObjectWrapper) String() string {
 	infoStr := fmt.Sprintf(

@@ -48,7 +48,7 @@ func (sw *Agilent34980A) Init(instr *VisaObjectWrapper, pinsNum int) error {
 	return nil
 }
 
-// Проверка слотов коммутатора на наличие Agilent 34932A Dual 4x16 Armature Matrix внутри.
+// Проверка слотов коммутатора на наличие модулей внутри.
 func (sw *Agilent34980A) CheckSlots() [8]string {
 
 	var moduleList [8]string
@@ -115,7 +115,7 @@ func (sw *Agilent34980A) fillPinArray(totalPinsNum int) error {
 	}
 
 	// Получаем массив с номерами выводов
-	pins := make([]int, 0, totalPinsNum*moduleRowNum)
+	pins := make([]int, totalPinsNum*moduleRowNum)
 	pinsCounter := 0
 	for i := 1; i <= moduleRowNum; i++ {
 		for j := 1; j <= totalPinsNum; j++ {
@@ -125,7 +125,7 @@ func (sw *Agilent34980A) fillPinArray(totalPinsNum int) error {
 	}
 
 	// Получаем массив с номерами реле модулей 34932A для таблицы
-	relayNumbersArray := make([]int, 0, totalPinsNum*moduleRowNum)
+	relayNumbersArray := make([]int, totalPinsNum*moduleRowNum)
 	involvedModules := moduleDual4x16Number[0:requiredNumOfModules]
 	relayArrCounter := 0
 
@@ -139,7 +139,7 @@ func (sw *Agilent34980A) fillPinArray(totalPinsNum int) error {
 	}
 
 	// вычленяем 2 старшие цифры в № реле
-	highDigitsInRelayNum := make([]int, 0, len(relayNumbersArray))
+	highDigitsInRelayNum := make([]int, len(relayNumbersArray))
 	for i := 0; i < len(highDigitsInRelayNum); i++ {
 		highDigitsInRelayNum[i] = relayNumbersArray[i] / 100
 	}
@@ -153,20 +153,20 @@ func (sw *Agilent34980A) fillPinArray(totalPinsNum int) error {
 
 	//Матрица индексов
 	var rowIndexes [moduleColNum][moduleRowNum]int
-	for i := 0; i < moduleColNum; i++ {
+	for i := 0; i < totalPinsNum/moduleColNum; i++ {
 		for j := 0; j < moduleRowNum; j++ {
 			rowIndexes[i][j] = data[i*moduleRowNum+j]
 		}
 	}
 
 	// Добавочное значение
-	addIndexes := make([]int, 0, totalPinsNum/moduleColNum)
+	addIndexes := make([]int, totalPinsNum/moduleColNum)
 	for i, add := 0, 0; i < len(addIndexes) && add <= totalPinsNum; i, add = i+1, add+moduleColNum {
 		addIndexes[i] = add
 	}
 
 	// Перекомпановка массива реле
-	relaysBlank := make([]int, 0, moduleRowNum*relayRatio+totalPinsNum)
+	relaysBlank := make([]int, moduleRowNum*relayRatio+totalPinsNum)
 	for i := 0; i < len(relayNumbersArray); i++ {
 
 		// Индексы по столбцам
@@ -197,7 +197,7 @@ func (sw *Agilent34980A) fillPinArray(totalPinsNum int) error {
 		relaysBlank[myColumn*relayRatio+myRow-1] = relayNumbersArray[i]
 	}
 
-	relays := make([]int, 0, moduleRowNum*totalPinsNum)
+	relays := make([]int, moduleRowNum*totalPinsNum)
 	relayCounter := 0
 	for _, rel := range relaysBlank {
 		if rel != 0 {
@@ -226,7 +226,7 @@ func (sw *Agilent34980A) fillPinArray(totalPinsNum int) error {
 // Конвертация номера вывода измерительной оснастки в номер реле Agilent 34932A.
 func (sw *Agilent34980A) PinsToRelays(pinsArr []int) ([]int, error) {
 
-	relaysArr := make([]int, 0, len(pinsArr))
+	relaysArr := make([]int, len(pinsArr))
 	wrongPins := make([]int, 0)
 
 	for i, pin := range pinsArr {
@@ -292,7 +292,7 @@ func (sw *Agilent34980A) PinsToRelaysString(pinsArr []int) (string, error) {
 // Конвертация номера реле Agilent 34932A в номер вывода измерительной оснастки.
 func (sw *Agilent34980A) RelaysToPins(relaysArr []int) ([]int, error) {
 
-	pinsArr := make([]int, 0, len(relaysArr))
+	pinsArr := make([]int, len(relaysArr))
 	wrongRelays := make([]int, 0)
 	var pin int
 
