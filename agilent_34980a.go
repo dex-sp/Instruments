@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -114,7 +115,7 @@ func (sw *Agilent34980A) fillPinArray(totalPinsNum int) error {
 		return fmt.Errorf("no %s module found in Agilent 34980A slots", moduleDual4x16)
 	}
 
-	// Получаем массив с номерами выводов
+	// Get pin numbers array
 	pins := make([]int, totalPinsNum*moduleRowNum)
 	pinsCounter := 0
 	for i := 1; i <= moduleRowNum; i++ {
@@ -124,7 +125,7 @@ func (sw *Agilent34980A) fillPinArray(totalPinsNum int) error {
 		}
 	}
 
-	// Получаем массив с номерами реле модулей 34932A для таблицы
+	// Get 34932A relay numbers array
 	relayNumbersArray := make([]int, totalPinsNum*moduleRowNum)
 	involvedModules := moduleDual4x16Number[0:requiredNumOfModules]
 	relayArrCounter := 0
@@ -138,7 +139,7 @@ func (sw *Agilent34980A) fillPinArray(totalPinsNum int) error {
 		}
 	}
 
-	// вычленяем 2 старшие цифры в № реле
+	// Get 2 elder digits of relay number
 	highDigitsInRelayNum := make([]int, len(relayNumbersArray))
 	for i := 0; i < len(highDigitsInRelayNum); i++ {
 		highDigitsInRelayNum[i] = relayNumbersArray[i] / 100
@@ -193,7 +194,6 @@ func (sw *Agilent34980A) fillPinArray(totalPinsNum int) error {
 				}
 			}
 		}
-
 		relaysBlank[myColumn*relayRatio+myRow-1] = relayNumbersArray[i]
 	}
 
@@ -224,113 +224,155 @@ func (sw *Agilent34980A) fillPinArray(totalPinsNum int) error {
 }
 
 // Конвертация номера вывода измерительной оснастки в номер реле Agilent 34932A.
-func (sw *Agilent34980A) PinsToRelays(pinsArr []int) ([]int, error) {
+func (sw *Agilent34980A) PinsToRelays(pins []int) ([]int, error) {
 
-	relaysArr := make([]int, len(pinsArr))
+	relays := make([]int, len(pins))
 	wrongPins := make([]int, 0)
 
-	for i, pin := range pinsArr {
+	for i, pin := range pins {
 		relay, relayExist := sw.pinsMap[pin]
 		if !relayExist {
 			wrongPins = append(wrongPins, pin)
 			continue
 		}
-		relaysArr[i] = relay
+		relays[i] = relay
 	}
 	if len(wrongPins) > 0 {
 		wrongPinsStr := strings.Trim(strings.Replace(fmt.Sprint(wrongPins), " ", ",", -1), "[]")
-		return pinsArr, fmt.Errorf("%s are not pin numbers for the current configuration of Agilent 34980A (%d row by %d pins)",
+		return pins, fmt.Errorf("%s are not pin numbers for the current configuration of Agilent 34980A (%d row by %d pins)",
 			wrongPinsStr, moduleRowNum, len(sw.pinsMap)/moduleRowNum)
 	}
-	return relaysArr, nil
+	return relays, nil
 }
 
 // Конвертация номера вывода измерительной оснастки в номер реле Agilent 34932A (представление в виде строки).
-func (sw *Agilent34980A) PinsToRelaysString(pinsArr []int) (string, error) {
+func (sw *Agilent34980A) PinsToRelaysString(pins []int) (string, error) {
 
 	var buffer bytes.Buffer
 	var relaySeries bool
-	var previousPin int
-	wrongPins := make([]int, 0)
+	var previousRelay int
 
-	sort.Ints(pinsArr)
+	sort.Ints(pins)
+	relays, err := sw.PinsToRelays(pins)
+	if err != nil {
+		return "", err
+	}
+	lastRelay := relays[len(relays)-1]
 
-	for i, pin := range pinsArr {
-		_, relayExist := sw.pinsMap[pin]
-		if !relayExist {
-			wrongPins = append(wrongPins, pin)
-			continue
-		}
+	for i, relay := range relays {
 
-		if pin-previousPin > 1 {
+		if relay-previousRelay > 1 {
 			if buffer.Len() > 0 && !relaySeries {
 				buffer.WriteString(",")
 			}
-			if i > 1 && previousPin-pinsArr[i-2] == 1 {
-				buffer.WriteString(fmt.Sprintf("%d,%d",
-					sw.pinsMap[previousPin], sw.pinsMap[pin]))
+
+			if i > 1 && previousRelay-relays[i-2] == 1 {
+				buffer.WriteString(fmt.Sprintf("%d,%d", previousRelay, relay))
 				relaySeries = false
+
 			} else {
-				buffer.WriteString(fmt.Sprintf("%d", sw.pinsMap[pin]))
+				buffer.WriteString(fmt.Sprintf("%d", relay))
 			}
 		} else {
+			if relay == lastRelay {
+				buffer.WriteString(fmt.Sprintf("%d", relay))
+				break
+			}
+
 			if !relaySeries {
 				buffer.WriteString(":")
 				relaySeries = true
 			}
 		}
-		previousPin = pin
-	}
-	if len(wrongPins) > 0 {
-		wrongPinsStr := strings.Trim(strings.Replace(fmt.Sprint(wrongPins), " ", ",", -1), "[]")
-		return "", fmt.Errorf("%s are not pin numbers for the current configuration of Agilent 34980A (%d row by %d pins)",
-			wrongPinsStr, moduleRowNum, len(sw.pinsMap)/moduleRowNum)
+		previousRelay = relay
 	}
 	return buffer.String(), nil
 }
 
 // Конвертация номера реле Agilent 34932A в номер вывода измерительной оснастки.
-func (sw *Agilent34980A) RelaysToPins(relaysArr []int) ([]int, error) {
+func (sw *Agilent34980A) RelaysToPins(relays []int) ([]int, error) {
 
-	pinsArr := make([]int, len(relaysArr))
+	pins := make([]int, len(relays))
 	wrongRelays := make([]int, 0)
 	var pin int
 
-	for i, relay := range relaysArr {
+	for i, relay := range relays {
 		pin = sw.relaysMap[relay]
 		if pin == 0 {
 			wrongRelays = append(wrongRelays, relay)
 			continue
 		}
-		pinsArr[i] = pin
+		pins[i] = pin
 	}
 	if len(wrongRelays) > 0 {
 		wrongRelaysStr := strings.Trim(strings.Replace(fmt.Sprint(wrongRelays), " ", ",", -1), "[]")
-		return pinsArr, fmt.Errorf("%s are not relay numbers of Agilent 34980A", wrongRelaysStr)
+		return pins, fmt.Errorf("%s are not relay numbers of Agilent 34980A", wrongRelaysStr)
 	}
-	return pinsArr, nil
+	return pins, nil
 }
 
-// Открыть/закрыть реле Agilent 34932A.
-func (sw *Agilent34980A) SetCommutation(pinsArr []int, state bool) error {
+// Open/Close 34932A relays.
+func (sw *Agilent34980A) SetCommutation(pins []int, state bool) error {
 
-	var strSate string
+	var strState string
 	if state {
-		strSate = "CLOSE"
+		strState = "CLOSE"
 	} else {
-		strSate = "OPEN"
+		strState = "OPEN"
 	}
-	relayArrStr, err := sw.PinsToRelaysString(pinsArr)
+	relayStr, err := sw.PinsToRelaysString(pins)
 	if err != nil {
 		return errors.Wrap(err, "commutation failed")
 	}
-	err = sw.instr.Write(fmt.Sprintf("ROUT:%s (@%s)", strSate, relayArrStr))
+	err = sw.instr.Write(fmt.Sprintf("ROUT:%s (@%s)", strState, relayStr))
 	if err != nil {
 		return errors.Wrap(err, "commutation failed")
 	}
 	return nil
 }
 
-func (sw *Agilent34980A) OpenAllRelays() {
-	sw.instr.Write("ROUT:OPEN:ALL ALL;*OPC")
+// Get 34932A relay states.
+func (sw *Agilent34980A) GetCommutation(pins []int) ([]bool, error) {
+
+	var errMsg = "failed to get pin states"
+	var states = make([]bool, len(pins))
+	var relayStr, stateStr string
+	var err error
+
+	relayStr, err = sw.PinsToRelaysString(pins)
+	if err != nil {
+		return nil, errors.Wrap(err, errMsg)
+	}
+
+	stateStr, err = sw.instr.Query(fmt.Sprintf("ROUTe:CLOSe? (@%s)", relayStr))
+	if err != nil {
+		return nil, errors.Wrap(err, errMsg)
+	}
+
+	stateStrSplit := strings.Split(stateStr, ",")
+
+	for i, st := range stateStrSplit {
+
+		state, err := strconv.ParseInt(st, 10, 8)
+		if err != nil {
+			return nil, errors.Wrap(err, errMsg)
+		}
+
+		if state == 1 {
+			states[i] = true
+		} else {
+			states[i] = false
+		}
+	}
+	return states, nil
+}
+
+// Open all relays of 34932A modules installed in 34980A multifunction switch/measure mainframe.
+func (sw *Agilent34980A) OpenAllRelays() error {
+
+	err := sw.instr.Write("ROUT:OPEN:ALL ALL;*OPC")
+	if err != nil {
+		return err
+	}
+	return nil
 }

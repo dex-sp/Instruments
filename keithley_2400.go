@@ -65,10 +65,6 @@ func (ke2400 *Keithley2400) SetAutoRangeVoltageSource(srcVoltage, limCurrent, np
 	if err != nil {
 		return errors.Wrap(err, errContext)
 	}
-	err = ke2400.instr.WriteWithoutCheck("SOUR:VOLT:PROT:LEV 210")
-	if err != nil {
-		return errors.Wrap(err, errContext)
-	}
 	err = ke2400.instr.WriteWithoutCheck("SOUR:VOLT:MODE AUTO")
 	if err != nil {
 		return errors.Wrap(err, errContext)
@@ -103,6 +99,10 @@ func (ke2400 *Keithley2400) SetAutoRangeVoltageSource(srcVoltage, limCurrent, np
 	if err != nil {
 		return errors.Wrap(err, errContext)
 	}
+	err = ke2400.instr.Write("SOUR:VOLT:PROT:LEV 210")
+	if err != nil {
+		return errors.Wrap(err, errContext)
+	}
 
 	if remote {
 		ke2400.instr.WriteWithoutCheck(":SYST:RSEN ON")
@@ -125,10 +125,6 @@ func (ke2400 *Keithley2400) SetFixedRangeVoltageSource(srcVoltage, limCurrent, n
 		return errors.Wrap(err, errContext)
 	}
 	err = ke2400.instr.WriteWithoutCheck("OUTP:SMOD ZERO")
-	if err != nil {
-		return errors.Wrap(err, errContext)
-	}
-	err = ke2400.instr.WriteWithoutCheck("SOUR:VOLT:PROT:LEV 210")
 	if err != nil {
 		return errors.Wrap(err, errContext)
 	}
@@ -171,6 +167,10 @@ func (ke2400 *Keithley2400) SetFixedRangeVoltageSource(srcVoltage, limCurrent, n
 		return errors.Wrap(err, errContext)
 	}
 	err = ke2400.instr.Write(fmt.Sprintf("SENS:CURR:NPLC %f", nplc))
+	if err != nil {
+		return errors.Wrap(err, errContext)
+	}
+	err = ke2400.instr.Write("SOUR:VOLT:PROT:LEV 210")
 	if err != nil {
 		return errors.Wrap(err, errContext)
 	}
