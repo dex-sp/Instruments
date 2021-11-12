@@ -23,10 +23,7 @@ func (vw *VisaObjectWrapper) Init() error {
 
 	instr, visaStatus := vw.ResourceManager.Open(vw.ResourceName, uint32(visa.NULL), uint32(visa.NULL))
 	if visaStatus != visa.SUCCESS {
-		statusDesc, _ := vw.instr.StatusDesc(visaStatus)
-		visaErr := fmt.Errorf("%d, %s", visaStatus, statusDesc[0:strings.Index(statusDesc, ".")])
-		context := fmt.Sprintf("an VISA error occurred while connect to \"%s\"", vw.ResourceName)
-		return errors.Wrap(visaErr, context)
+		return fmt.Errorf("an VISA error occurred (%d) while connect to \"%s\"", visaStatus, vw.ResourceName)
 	}
 
 	vw.instr = &instr
@@ -137,4 +134,13 @@ func (vw *VisaObjectWrapper) String() string {
 
 func (vw *VisaObjectWrapper) SetErrorQuery(query string) {
 	vw.errorQuery = query
+}
+
+func GetResourceManager() (visa.Session, error) {
+
+	rm, visaStatus := visa.OpenDefaultRM()
+	if visaStatus != visa.SUCCESS {
+		return rm, fmt.Errorf("couldn't open a session to the visa resource manager (error %d)", visaStatus)
+	}
+	return rm, nil
 }

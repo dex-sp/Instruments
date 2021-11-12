@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/joho/godotenv"
-	"github.com/jpoirier/visa"
 )
 
 func TestAgilent34980a(t *testing.T) {
@@ -28,14 +27,14 @@ func TestAgilent34980a(t *testing.T) {
 	var manufacturer = "Agilent Technologies"
 	var model = "34980A"
 
-	rm, visaStatus := visa.OpenDefaultRM()
-	if visaStatus != visa.SUCCESS {
-		t.Errorf("visa resource manager error")
+	rm, err := GetResourceManager()
+	if err != nil {
+		t.Errorf(err.Error())
 	}
 	defer rm.Close()
 
 	mtrxHandler := VisaObjectWrapper{ResourceName: fullAddr, ResourceManager: &rm}
-	err := mtrxHandler.Init()
+	err = mtrxHandler.Init()
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -94,10 +93,6 @@ func TestAgilent34980a(t *testing.T) {
 		if err != nil {
 			t.Errorf(err.Error())
 		}
-		// states, err := mtrx.GetCommutation(pins)
-		// if err != nil {
-		// 	t.Errorf(err.Error())
-		// }
 	}
 	mtrx.OpenAllRelays()
 }
